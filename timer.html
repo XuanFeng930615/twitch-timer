@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加班倒數計時器</title>
+    <style>
+        body {
+            background: transparent;
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        
+        #countdown-timer {
+            font-size: 60px;
+            font-weight: bold;
+            color: #FFCC00;
+            text-shadow: 2px 2px 10px rgba(255, 255, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .control-buttons {
+            margin-top: 10px;
+        }
+        
+        button {
+            font-size: 18px;
+            margin: 5px;
+            padding: 10px 15px;
+            border: none;
+            background: #FFCC00;
+            color: black;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        
+        button:hover {
+            background: #FFD700;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="countdown-timer">01:00:00</div>
+    <div class="control-buttons">
+        <button onclick="toggleTimer()">⏯ 暫停 / 恢復</button>
+        <button onclick="adjustTime(300)">➕ 增加 5 分鐘</button>
+        <button onclick="adjustTime(-300)">➖ 減少 5 分鐘</button>
+    </div>
+
+    <script>
+        let totalSeconds = 3600; // 初始時間：1小時
+        let isPaused = false; // 是否暫停
+        let timerInterval; // 計時器間隔變數
+
+        function updateTimer() {
+            let hours = Math.floor(totalSeconds / 3600);
+            let minutes = Math.floor((totalSeconds % 3600) / 60);
+            let seconds = totalSeconds % 60;
+
+            document.getElementById("countdown-timer").innerText =
+                `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function startTimer() {
+            if (!timerInterval) {
+                timerInterval = setInterval(() => {
+                    if (!isPaused && totalSeconds > 0) {
+                        totalSeconds--;
+                        updateTimer();
+                    }
+                }, 1000);
+            }
+        }
+
+        function toggleTimer() {
+            isPaused = !isPaused;
+        }
+
+        function adjustTime(seconds) {
+            totalSeconds = Math.max(0, totalSeconds + seconds);
+            updateTimer();
+        }
+
+        updateTimer();
+        startTimer();
+
+        // 監聽 Streamlabs 事件
+        const socket = new WebSocket("wss://sockets.streamlabs.com/api/v2/socket");
+
+        socket.onmessage = function(event) {
+            let data = JSON.parse(event.data);
+            if (data.for === "streamlabs") {
+                let message = data.message[0];
+                if (message.type === "donation") {
+                    let amount = parseFloat(message.amount);
+                    let extraTime = Math.floor(amount * 60); // 每 $1 增加 60 秒
+                    adjustTime(extraTime);
+                } else if (message.type === "follower") {
+                    adjustTime(120); // 追隨增加 2 分鐘
+                } else if (message.type === "channel_points") {
+                    adjustTime(180); // 兌換小奇點增加 3 分鐘
+                }
+            }
+        };
+    </script>
+</body>
+
+</html>
